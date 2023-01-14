@@ -1,0 +1,174 @@
+---
+# tasks file for roles/tomcat-role
+#########################################################################
+- name: apt update
+  apt:
+    update_cache: yes
+  when: ansible_facts.distribution == "Ubuntu"
+
+
+- name:  Install default-jdk
+  apt: 
+    name: default-jdk
+    state: present
+  when: ansible_facts.distribution == "Ubuntu"
+
+#########################################################################
+
+- name: yum update
+  yum:
+    update_cache: yes
+  when: ansible_facts.distribution in ['Amazon','RedHat']
+
+
+
+- name: check if ebel installed 
+  stat:
+    path: /etc/yum/repos.d/{{repo}}
+  loop: 
+    - epel.repo
+    - epel-testing.repo
+  loop_control:
+    loop_var: repo
+  register: stat_results
+  when: ansible_facts.distribution == "Amazon"
+
+- name: install ebel
+  command: amazon-linux-extras install epel -y 
+  when: 
+    - false in exists_list
+    - ansible_facts.distribution == "Amazon"
+
+  vars:
+    exists_list: "{{ stat_results.results | json_query('[*].stat.exists') | default([],true) }}"
+    
+- name:  Install default-jdk
+  yum: 
+    name: java-11-openjdk-devel
+    state: present
+  when: ansible_facts.distribution == "RedHat"
+
+- name:  java-openjdk11
+  command: amazon-linux-extras install java-openjdk11 -y
+  when: ansible_facts.distribution in ['Amazon']
+  
+#########################################################################
+- name: Ensure group "tomcat" exists
+  ansible.builtin.group:
+    name: tomcat
+    state: present
+
+#########################################################################
+- name: download tomcat
+  get_url: 
+    url: https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.71/bin/apache-tomcat-9.0.71.tar.gz 
+    dest: /opt
+
+#########################################################################
+- name: Unarchive a tomcat 
+  ansible.builtin.unarchive:
+    src: /opt/apache-tomcat-9.0.71.tar.gz
+    dest: /opt/
+    remote_src: yes
+  
+#########################################################################
+# - name: Check if the folder exists
+#   stat:
+#     path: /opt
+#   register: dest_folder
+
+- name: rename directory to tomcat
+  command: mv /opt/apache-tomcat-9.0.71  /opt/tomcat
+  # when: not dest_folder.stat.exists
+
+#########################################################################
+- name: add user tomcat
+  user:
+    name: tomcat    
+    group: tomcat
+    shell: /bin/false
+    home: /opt/tomcat
+
+#########################################################################
+
+- name: Change directory ownership, group 
+  ansible.builtin.file:
+    path: /opt/tomcat
+    owner: tomcat
+    group: tomcat
+    state: directory
+    recurse: yes
+#########################################################################
+- name: Change directory permissions
+  ansible.builtin.file:
+    path: /opt/tomcat/bin
+    state: directory
+    recurse: yes
+    mode: u+x
+
+#########################################################################
+- name: edit users file in /opt/tomcat/conf/tomcat-users.xml
+  template:
+    src: tomcat-users.xml.j2
+    dest: /opt/tomcat/conf/tomcat-users.xml
+    mode: 0600
+
+#########################################################################
+- name: create service file in /etc/systemd/system/tomcat.service
+  template:
+    src: tomcat.service.j2
+    dest: /etc/systemd/system/tomcat.service
+    mode: 0644
+
+#########################################################################
+- name: create service file in /opt/tomcat/webapps/manager/META-INF/context.xml
+  template:
+    src: context.xml.j2
+    dest: /opt/tomcat/webapps/manager/META-INF/context.xml
+    mode: 0640
+  notify:
+    - reload systemd
+
+#########################################################################
+- name: enable tomcat service
+  service:
+    name: tomcat
+    enabled: yes
+    state: started
+
+#########################################################################
+- name: Allow all access to tcp port 8080
+  community.general.ufw:
+    rule: allow
+    port: '8080'
+    proto: tcp
+  when: ansible_facts.distribution in ['Ubuntu']
+
+
+
+- name: install python-firewall
+  yum:
+    name: 
+      - ipset
+      - firewalld
+      - ufw 
+    update_cache: yes
+  when: ansible_facts.distribution in ['Amazon','RedHat']
+
+- name: enable firewalld service
+  service:
+    name: 
+    - firewalld
+    enabled: yes
+    state: started
+  when: ansible_facts.distribution in ['Amazon','RedHat']
+
+- name:  Allow all access to tcp port 8080
+  ansible.posix.firewalld:
+    port: 8080/tcp
+    permanent: yes
+    state: enabled
+  when: ansible_facts.distribution in ['Amazon','RedHat']
+
+
+#########################################################################

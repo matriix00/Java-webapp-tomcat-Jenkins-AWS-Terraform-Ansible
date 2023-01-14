@@ -1,0 +1,6 @@
+---
+# handlers file for roles/tomcat-role
+- name: reload systemd
+  systemd:
+    daemon_reload: yes
+
