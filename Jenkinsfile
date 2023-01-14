@@ -1,7 +1,7 @@
 node{
     
     stage('Clone repo'){
-        git credentialsId: 'GIT-Credentials', url: 'https://github.com/matriix00/maven-webapp.git'
+        git credentialsId: 'github-secret', url: 'https://github.com/matriix00/Java-webapp-tomcat-Jenkins-AWS-Terraform-Ansible.git'
     }
     
     stage('Maven Build'){
@@ -20,7 +20,7 @@ node{
 // deploy to tomcat9 
 stage ('Deploy') {
         script {
-          deploy adapters: [tomcat9(credentialsId: 'tomcat-secret', path: '', url: 'http://44.201.222.136:8080/')], contextPath: 'maven-web-app', onFailure: false, war: 'target/*.war' 
+          deploy adapters: [tomcat9(credentialsId: 'tomcat-secret', path: '', url: 'http://3.137.173.118:8080/')], contextPath: 'java-web-app', onFailure: false, war: 'target/*.war' 
         }
       
     }        
