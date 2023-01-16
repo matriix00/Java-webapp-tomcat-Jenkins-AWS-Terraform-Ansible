@@ -98,7 +98,7 @@ After configuring your ec2-server you can change your manager password by change
 
 * Now all you have to do , is to hit ip that you copied before with port 8080 followed by /java-web-app  to launch your web-app
 
-<img src="images/demo.png" alt="terraform" width="850" height="600"/>
+<img src="images/ip.png" alt="terraform" width="800" height="100"/>
 
 
 
